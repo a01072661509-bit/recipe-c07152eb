@@ -180,7 +180,7 @@ $('#quickBtn').onclick=()=>{$('#vQuick details').open=false;$('#qkName').value='
 $('#setBtn').onclick=()=>{$('#setKey').value=getKey();$('#setModel').value=localStorage.getItem('gmModel')||'';$('#setMsg').textContent='';show('vSet')};
 $('#setSave').onclick=()=>{localStorage.setItem('gmKey',$('#setKey').value.trim());localStorage.setItem('gmModel',$('#setModel').value.trim());$('#setMsg').textContent='저장했어요.'};
 $('#setDel').onclick=()=>{localStorage.removeItem('gmKey');$('#setKey').value='';$('#setMsg').textContent='열쇠를 지웠어요.'};
-$('#setTest').onclick=async()=>{localStorage.setItem('gmKey',$('#setKey').value.trim());localStorage.setItem('gmModel',$('#setModel').value.trim());$('#setMsg').textContent='확인하는 중…';try{const r=await gemini([{text:'「좋아요」라고만 JSON 문자열로 답해 주세요.'}]);$('#setMsg').textContent='✅ 잘 돼요! ('+usedModel+')'}catch(e){$('#setMsg').textContent='❌ '+e.message}};
+$('#setTest').onclick=async()=>{localStorage.setItem('gmKey',$('#setKey').value.trim());localStorage.setItem('gmModel',$('#setModel').value.trim());$('#setMsg').textContent='확인하는 중…';aiStatus=t=>$('#setMsg').textContent=t;try{const r=await gemini([{text:'「좋아요」라고만 JSON 문자열로 답해 주세요.'}]);$('#setMsg').textContent='✅ 잘 돼요! ('+usedModel+')'}catch(e){$('#setMsg').textContent='❌ '+e.message}};
 $('#qkAuto').onclick=autoFill;
 $('#qkSave').onclick=async()=>{const name=$('#qkName').value.trim(),url=$('#qkUrl').value.trim();if(!name){toast('음식 이름을 써 주세요');return}if(!ytId(url)){toast('유튜브 링크가 맞는지 확인해 주세요');return}
  const r={id:uid(),created:Date.now(),fav:false,name,cat:'기타',time:0,serv:2,memo:'',photos:[],ings:[],steps:[],sources:[{type:'youtube',url,label:'',timestamps:[]}]};await put(r);await load();renderList();openDetail(r.id);toast('저장했어요')};
@@ -214,18 +214,29 @@ function parseText(text){const L=String(text||'').split(/\r?\n/).map(l=>l.replac
     if(b&&!/^\d/.test(part))ings.push([b[1].trim(),b[2].trim()]);else if(a)ings.push([a[2].trim(),a[1].trim()]);else ings.push([part.trim(),''])}}
   else if(mode==='s'||/^(\d{1,2})[.)]\s+\S/.test(l)&&ings.length){const st=l.replace(/^(step\s*)?\d{1,2}[.)\s]\s*/i,'').trim();if(st.length>2){steps.push(st);if(!mode)mode='s'}}}
  return{ings,steps,ts}}
-async function gemini(parts){const key=getKey();if(!key)throw new Error('AI 열쇠가 없어요');const models=[localStorage.getItem('gmModel')||'gemini-2.5-flash','gemini-flash-latest','gemini-2.5-flash-lite'].filter((v,i,a)=>v&&a.indexOf(v)===i);let last;
- for(const m of models){const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify({contents:[{role:'user',parts}],generationConfig:{responseMimeType:'application/json',temperature:0.2}})});
-  const j=await r.json().catch(()=>({}));if(r.ok){usedModel=m;const t=(j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('');return JSON.parse(t)}
-  last=j.error?.message||('오류 '+r.status);if(r.status===400&&/API key/i.test(last))throw new Error('AI 열쇠가 맞지 않아요. 다시 확인해 주세요.');if(r.status===429)throw new Error('오늘 무료 사용량을 다 썼거나 너무 자주 눌렀어요. 잠시 뒤 다시 해 주세요.');if(r.status!==404)break}
- throw new Error('AI가 답하지 못했어요: '+last)}
+let aiStatus=()=>{};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function koErr(st,m){m=String(m||'');if(st===400&&/api key|API_KEY/i.test(m))return 'AI 열쇠가 맞지 않아요. 설정에서 다시 확인해 주세요.';if(st===403)return 'AI 열쇠에 권한이 없어요. 설정에서 열쇠를 다시 확인해 주세요.';
+ if(st===429)return '오늘 무료 사용량을 다 썼거나 너무 자주 눌렀어요. 잠시 뒤 다시 해 주세요.';if(st===503||st===500||/overload|high demand|unavailable/i.test(m))return '구글 AI가 지금 붐벼요. 잠시 뒤 다시 해 주세요.';if(st===0)return '인터넷 연결을 확인해 주세요.';if(st==='parse')return 'AI 답을 읽지 못했어요. 다시 해 주세요.';return 'AI가 답하지 못했어요. 잠시 뒤 다시 해 주세요.'}
+async function gemini(parts){const key=getKey();if(!key)throw new Error('AI 열쇠가 없어요. 설정에서 넣어 주세요.');
+ const models=[localStorage.getItem('gmModel')||'gemini-2.5-flash','gemini-2.5-flash','gemini-2.5-flash-lite','gemini-2.0-flash'].filter((v,i,a)=>v&&a.indexOf(v)===i);let lastSt=-1,lastM='';
+ for(const m of models){for(let t=0;t<3;t++){let r,j={};
+   try{r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify({contents:[{role:'user',parts}],generationConfig:{responseMimeType:'application/json',temperature:0.2}})});j=await r.json().catch(()=>({}))}catch(e){r={ok:false,status:0}}
+   if(r.ok){usedModel=m;const tx=(j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('');try{return JSON.parse(tx.replace(/^```(json)?|```$/g,'').trim())}catch(e){lastSt='parse';break}}
+   lastSt=r.status;lastM=j.error?.message||'';
+   if(r.status===400&&/api key|API_KEY/i.test(lastM)||r.status===403)throw new Error(koErr(r.status,lastM));
+   const busy=[0,429,500,503].includes(r.status)||/overload|high demand|unavailable/i.test(lastM);
+   if(!busy)break; // 404 등: 다음 모델
+   if(t<2){aiStatus('구글 AI가 지금 붐벼요. 잠시 뒤 다시 해 볼게요… ('+(t+1)+'/2)');await sleep(1500*(t+1))}}
+  if(m!==models[models.length-1])aiStatus('다른 AI 모델로 바꿔서 해 볼게요…')}
+ throw new Error(koErr(lastSt,lastM))}
 const PROMPT=`당신은 요리 레시피 정리 도우미입니다. 주어진 자료(영상/글/사진)에서 레시피를 찾아 한국어로 정리하세요. 자료에 없는 내용은 지어내지 말고 비워 두세요.
 반드시 이 JSON 하나만 답하세요:
 {"name":"음식 이름(짧게)","category":"한식|양식|중식|일식|디저트|기타 중 하나","minutes":숫자 또는 0,"servings":숫자 또는 0,"ingredients":[{"name":"재료","amount":"양 (예: 200g, 1큰술, 1/2개)"}],"steps":["쉬운 말로 한 단계씩"],"timestamps":[{"t":"분:초","label":"그 장면 설명(영상일 때만, 중요한 3~6개)"}],"memo":"팁이 있으면 한두 줄"}`;
 async function fileToB64(f){const d=await compress(f);return d}
 async function autoFill(){const url=$('#qkUrl').value.trim(),f=$('#qkPhoto').files[0],msg=t=>$('#qkMsg').textContent=t,key=getKey();
  if(!url&&!f){msg('링크를 붙여넣거나 사진을 골라 주세요.');return}
- $('#qkAuto').disabled=true;msg('읽는 중이에요… (10~40초 걸릴 수 있어요)');
+ $('#qkAuto').disabled=true;msg('읽는 중이에요… (10~40초 걸릴 수 있어요)');aiStatus=t=>msg(t);
  const d={name:'',cat:'기타',time:0,serv:2,memo:'',photos:[],ings:[],steps:[],sources:[]};let got=null,note='';
  try{
   if(f){const du=await fileToB64(f);d.photos.push(du);
