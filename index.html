@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f08c4a">
+<title>기억해 레시피</title>
+<link rel="manifest" href="manifest.json"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{--bg:#fdf6ec;--card:#fffdf9;--or:#f08c4a;--or2:#fde3cf;--tx:#4a3728;--mu:#9a8676}
+*{box-sizing:border-box}body{margin:0;font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var(--bg);color:var(--tx);font-size:16px}
+header{position:sticky;top:0;z-index:5;background:linear-gradient(135deg,#f6a26b,#f08c4a);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:8px;box-shadow:0 2px 10px #f08c4a33}
+header h1{font-size:21px;margin:0;flex:1;letter-spacing:-.5px}
+main{max-width:860px;margin:0 auto;padding:14px}
+button{font:inherit;border:0;border-radius:12px;padding:10px 14px;cursor:pointer;background:#f3e9dc;color:var(--tx)}
+.pri{background:var(--or);color:#fff}.danger{background:#e5675a;color:#fff}.ghost{background:transparent;border:1px solid #e6d5c3;color:var(--mu);font-size:14px;padding:7px 12px}
+.big{width:100%;font-size:18px;font-weight:700;padding:15px;margin-top:8px;display:block}.yt{background:#e8453c;color:#fff}.blog{background:#3f8f5b;color:#fff}
+input,select,textarea{font:inherit;width:100%;padding:11px;border:1px solid #eadccc;border-radius:12px;background:#fff;color:var(--tx)}
+.search{position:relative;margin-bottom:10px}.search input{padding-left:40px;border-radius:24px;background:var(--card)}.search:before{content:"🔍";position:absolute;left:14px;top:11px}
+.chips{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;padding-bottom:2px}.chip{white-space:nowrap;padding:7px 14px;border-radius:20px;background:var(--card);border:1px solid #eadccc}.chip.on{background:var(--or);color:#fff;border-color:var(--or)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.card{background:var(--card);border-radius:18px;overflow:hidden;box-shadow:0 3px 12px #b07a4a1a;cursor:pointer;position:relative}
+.card .im{aspect-ratio:4/3;background:var(--or2) center/cover;display:flex;align-items:center;justify-content:center;font-size:44px}
+.card .t{padding:10px 12px 12px}.card b{display:block;font-size:17px;line-height:1.3}.sub{color:var(--mu);font-size:13px}
+.star{background:none;font-size:24px;padding:2px 6px;color:#d9cbbd}.star.on{color:#f5a623}
+.card .star{position:absolute;top:6px;right:6px;background:#fffc;border-radius:50%;width:38px;height:38px;padding:0}
+.badge{display:inline-block;font-size:12px;background:var(--or2);color:#b5602a;border-radius:8px;padding:1px 7px;margin-right:4px}
+.box{background:var(--card);border-radius:18px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px #b07a4a14}
+label{display:block;font-weight:700;margin:12px 0 5px}
+.row{display:flex;gap:6px;margin-bottom:6px}.row input{flex:1}.row .x{flex:none;background:#fbe0dc}
+.ing label{font-weight:400;display:flex;gap:10px;align-items:center;margin:8px 0}.ing input{width:22px;height:22px;accent-color:var(--or)}.ing .done{text-decoration:line-through;color:#bbb}
+ol{padding-left:22px}ol li{margin-bottom:10px;line-height:1.6}
+.gal{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;margin-bottom:12px}.gal img{height:240px;max-width:90%;object-fit:cover;border-radius:16px;scroll-snap-align:center;flex:none}
+.src{border:1px solid #f0e3d4;border-radius:14px;padding:10px;margin-top:10px}.src img{width:100%;border-radius:10px;display:block}
+.tsb{display:inline-block;margin:8px 6px 0 0;background:#fdecea;color:#c0392b;font-size:15px}
+.serv{display:flex;align-items:center;gap:10px}.serv button{font-size:22px;width:44px;background:var(--or2)}
+.hidden{display:none!important}.empty{text-align:center;color:var(--mu);padding:50px 10px;grid-column:1/-1}
+.foot{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:22px 0 8px}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#4a3728;color:#fff;padding:10px 18px;border-radius:20px;display:none;z-index:9}
+</style></head><body>
+<header><h1 id="ttl">🍲 기억해 레시피</h1><button id="backBtn" class="hidden" style="background:#fff3;color:#fff">← 뒤로</button></header>
+<main>
+<section id="vList">
+ <div class="search"><input id="q" placeholder="음식 이름이나 재료로 찾기"></div>
+ <div class="chips" id="chips"></div>
+ <div class="grid" id="list"></div>
+ <div class="foot"><button class="ghost" id="addBtn">+ 직접 추가</button><button class="ghost" id="quickBtn">▶ 영상 링크로 추가</button><button class="ghost" id="expBtn">백업 저장</button><button class="ghost" id="impBtn">백업 불러오기</button><input type="file" id="impFile" accept=".json,application/json" class="hidden"></div>
+</section>
+<section id="vQuick" class="hidden"><div class="box">
+ <label>음식 이름</label><input id="qkName" placeholder="예: 된장찌개">
+ <label>유튜브 링크</label><input id="qkUrl" placeholder="유튜브 주소를 붙여넣으세요">
+ <button class="pri big" id="qkSave">저장하기</button></div></section>
+<section id="vDetail" class="hidden"></section>
+<section id="vEdit" class="hidden"><div class="box">
+ <div id="botNote" class="sub hidden" style="background:var(--or2);padding:8px;border-radius:10px">이 레시피를 고치면 내 휴대폰에만 따로 저장돼요.</div>
+ <label>음식 이름 *</label><input id="fName">
+ <label>종류</label><select id="fCat"></select>
+ <div class="row"><div style="flex:1"><label>걸리는 시간(분)</label><input id="fTime" type="number" min="0" inputmode="numeric"></div><div style="flex:1"><label>몇 인분</label><input id="fServ" type="number" min="1" inputmode="numeric"></div></div>
+ <label>재료</label><div id="fIngs"></div><button id="addIng">+ 재료 추가</button>
+ <label>만드는 순서</label><div id="fSteps"></div><button id="addStep">+ 순서 추가</button>
+ <label>영상·글 링크</label><div class="sub">시간 메모는 "3:20 양념 넣는 부분"처럼 쓰면 그 시간부터 열려요. 여러 개는 줄을 바꿔 쓰세요.</div><div id="fVids"></div><button id="addVid">+ 링크 추가</button>
+ <label>메모</label><textarea id="fMemo" rows="3"></textarea>
+ <label>사진 추가 (선택)</label><input id="fPhoto" type="file" accept="image/*"><div class="gal" id="fPrev" style="margin-top:8px"></div>
+ <div class="row" style="margin-top:16px"><button class="pri" id="saveBtn" style="flex:2">저장하기</button><button id="cancelBtn" style="flex:1">취소</button></div></div></section>
+</main><div id="toast"></div>
+<script>
+const CATS=['한식','양식','중식','일식','디저트','기타'];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>Number(n).toLocaleString('ko-KR',{maximumFractionDigits:2});
+function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',1800)}
+let db;function openDB(){return new Promise((ok,no)=>{const r=indexedDB.open('gieokhaeDB',1);r.onupgradeneeded=()=>r.result.createObjectStore('recipes',{keyPath:'id'});r.onsuccess=()=>{db=r.result;ok()};r.onerror=()=>no(r.error)})}
+function tx(mode,fn){return new Promise((ok,no)=>{const t=db.transaction('recipes',mode);const r=fn(t.objectStore('recipes'));t.oncomplete=()=>ok(r&&r.result);t.onerror=()=>no(t.error)})}
+const all=()=>tx('readonly',s=>s.getAll()),put=r=>tx('readwrite',s=>s.put(r)),del=id=>tx('readwrite',s=>s.delete(id));
+const uid=()=>'u'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+function ytId(u){const m=String(u||'').trim().match(/(?:youtu\.be\/|[?&]v=|\/shorts\/|\/embed\/|\/live\/)([\w-]{11})/);return m?m[1]:null}
+function parseT(s){if(typeof s==='number')return s;const m=String(s||'').match(/(?:(\d+):)?(\d{1,2}):(\d{2})/);return m?(+(m[1]||0))*3600+(+m[2])*60+(+m[3]):0}
+const tStr=s=>{s=+s;const h=s/3600|0,m=(s%3600)/60|0,x=String(s%60).padStart(2,'0');return h?`${h}:${String(m).padStart(2,'0')}:${x}`:`${m}:${x}`};
+const ytUrl=(id,sec)=>'https://www.youtube.com/watch?v='+id+(sec?'&t='+sec+'s':'');
+function scaleQty(q,f){if(f===1)return q;return String(q).replace(/(\d+)\s*\/\s*(\d+)|\d[\d,]*(?:\.\d+)?/,(m,a,b)=>{const v=(b?a/b:parseFloat(m.replace(/,/g,'')))*f;return fmt(Math.round(v*100)/100)})}
+// normalize bot item -> internal
+function fromBot(b){return{id:'b_'+b.id,botId:b.id,bot:true,name:b.name||'',cat:CATS.includes(b.category)?b.category:'기타',time:+b.minutes||0,serv:+b.servings||1,memo:b.memo||'',fav:!!b.favorite,
+ photos:(b.photos||[]).filter(Boolean),ings:(b.ingredients||[]).map(i=>[i.name||'',String(i.amount??'')]),steps:b.steps||[],
+ sources:(b.sources||[]).map(s=>({type:s.type||(ytId(s.url)?'youtube':'blog'),url:s.url||'',label:s.label||'',timestamps:(s.timestamps||[]).map(t=>({t:parseT(t.t),label:t.label||''}))}))}}
+let bots=[],recipes=[],cat='전체',cur=null,editing=null,photos=[],servNow=1,checked={};
+async function fetchBots(){try{const r=await fetch('recipes.json',{cache:'no-store'});const j=await r.json();bots=(Array.isArray(j)?j:j.recipes||[]).map(fromBot)}catch(e){bots=[]}}
+async function load(){const mine=await all();const map=new Map(bots.map(b=>[b.id,b]));for(const m of mine)map.set(m.id,m);
+ recipes=[...map.values()].filter(r=>!r.hiddenDel);recipes.sort((a,b)=>(b.fav-a.fav)||((b.created||0)-(a.created||0))||a.name.localeCompare(b.name,'ko'))}
+function show(v){['vList','vDetail','vEdit','vQuick'].forEach(x=>$('#'+x).classList.toggle('hidden',x!==v));$('#backBtn').classList.toggle('hidden',v==='vList');scrollTo(0,0)}
+function cover(r){if(r.photos?.length)return r.photos[0];const v=(r.sources||[]).map(x=>ytId(x.url)).find(Boolean);return v?`https://img.youtube.com/vi/${v}/hqdefault.jpg`:''}
+function renderList(){$('#chips').innerHTML=['전체','★ 즐겨찾기',...CATS].map(c=>`<button class="chip ${c===cat?'on':''}" data-c="${c}">${c}</button>`).join('');
+ const q=$('#q').value.trim().toLowerCase();
+ const L=recipes.filter(r=>(cat==='전체'||(cat==='★ 즐겨찾기'?r.fav:r.cat===cat))&&(!q||r.name.toLowerCase().includes(q)||r.ings.some(i=>i[0].toLowerCase().includes(q))));
+ $('#list').innerHTML=L.length?L.map(r=>{const c=cover(r);return `<div class="card" data-id="${r.id}"><div class="im" ${c?`style="background-image:url('${esc(c)}')"`:''}>${c?'':'🍲'}</div><button class="star ${r.fav?'on':''}" data-fav="${r.id}" aria-label="즐겨찾기">★</button><div class="t"><b>${esc(r.name)}</b><span class="sub"><span class="badge">${esc(r.cat)}</span>${r.time?fmt(r.time)+'분':''}${(r.sources||[]).some(s=>s.type==='youtube')?' · ▶ 영상':''}</span></div></div>`}).join(''):'<div class="empty">찾는 레시피가 없어요.</div>';
+ $('#ttl').textContent=`🍲 기억해 레시피 · ${fmt(recipes.length)}개`}
+function srcHtml(s){const id=s.type==='youtube'?ytId(s.url):null;const lab=s.label?`<div style="font-weight:700;margin:8px 0 0">${esc(s.label)}</div>`:'';
+ if(s.type==='youtube'&&id)return `<div class="src"><img src="https://img.youtube.com/vi/${id}/hqdefault.jpg" alt="" onerror="this.remove()">${lab}<a class="ytgo" href="${ytUrl(id)}" target="_blank" rel="noopener"><button class="big yt">▶ 영상 보기</button></a><div>${(s.timestamps||[]).map(t=>`<a class="tsa" href="${ytUrl(id,t.t)}" target="_blank" rel="noopener"><button class="tsb">⏱ ${tStr(t.t)} ${esc(t.label)}</button></a>`).join('')}</div></div>`;
+ if(s.type==='photo')return `<div class="src">${lab}<a href="${esc(s.url)}" target="_blank" rel="noopener"><img src="${esc(s.url)}" alt=""></a></div>`;
+ return `<div class="src">${lab}<a class="bloggo" href="${esc(s.url)}" target="_blank" rel="noopener"><button class="big blog">📖 원래 글 보기</button></a></div>`}
+function renderDetail(){const r=cur,f=servNow/(r.serv||1);
+ $('#vDetail').innerHTML=`${r.photos?.length?`<div class="gal">${r.photos.map(p=>`<img src="${esc(p)}" alt="">`).join('')}</div>`:''}
+ <div class="box"><div style="display:flex;align-items:center"><h2 style="flex:1;margin:0">${esc(r.name)}</h2><button class="star ${r.fav?'on':''}" id="dFav">★</button></div>
+ <div class="sub" style="margin-top:4px"><span class="badge">${esc(r.cat)}</span>${r.time?fmt(r.time)+'분 걸려요':''}${r.bot&&!r.override?' · 봇이 정리한 레시피':''}${r.override?' · 내가 고친 레시피':''}</div></div>
+ ${r.sources?.length?`<div class="box"><b>📺 영상·원래 글</b>${r.sources.map(srcHtml).join('')}</div>`:''}
+ <div class="box"><b>재료</b><div class="serv" style="margin:8px 0"><button id="sMinus">−</button><b id="sNow">${fmt(servNow)}인분</b><button id="sPlus">+</button>${servNow!==r.serv?`<span class="sub">(원래 ${fmt(r.serv)}인분)</span>`:''}</div>
+ <div class="ing">${r.ings.map((i,k)=>`<label><input type="checkbox" data-k="${k}" ${checked[k]?'checked':''}><span class="${checked[k]?'done':''}">${esc(i[0])} <b>${esc(scaleQty(i[1],f))}</b></span></label>`).join('')||'<div class="sub">재료가 아직 없어요</div>'}</div></div>
+ ${r.steps.length?`<div class="box"><b>만드는 순서</b><ol>${r.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol></div>`:''}
+ ${r.memo?`<div class="box"><b>메모</b><div style="white-space:pre-wrap">${esc(r.memo)}</div></div>`:''}
+ <div class="row"><button class="pri" id="dEdit" style="flex:1">고치기</button>${r.override?'<button id="dReset" style="flex:1">원래대로</button>':''}<button class="danger" id="dDel" style="flex:1">지우기</button></div>`;
+ $('#dFav').onclick=async()=>{r.fav=!r.fav;if(r.bot)r.override=true;await put(r);await load();renderDetail()};
+ $('#sMinus').onclick=()=>{if(servNow>1){servNow--;renderDetail()}};$('#sPlus').onclick=()=>{servNow++;renderDetail()};
+ $('#vDetail').querySelectorAll('[data-k]').forEach(c=>c.onchange=()=>{checked[c.dataset.k]=c.checked;renderDetail()});
+ $('#dEdit').onclick=()=>openEdit(r);
+ if($('#dReset'))$('#dReset').onclick=async()=>{if(!confirm('내가 고친 내용을 버리고 원래대로 돌릴까요?'))return;await del(r.id);await load();openDetail(r.id)};
+ $('#dDel').onclick=async()=>{if(!confirm(`"${r.name}" 레시피를 지울까요?\n지우면 되돌릴 수 없어요.`))return;if(r.bot)await put({id:r.id,hiddenDel:true});else await del(r.id);await load();renderList();show('vList');toast('지웠어요')}}
+function openDetail(id){cur=recipes.find(r=>r.id===id);if(!cur){renderList();return show('vList')}servNow=cur.serv||1;checked={};renderDetail();show('vDetail')}
+function rowIng(n='',q=''){const d=document.createElement('div');d.className='row';d.innerHTML=`<input placeholder="재료 (예: 양파)" value="${esc(n)}" class="iN"><input placeholder="양 (예: 1개)" value="${esc(q)}" class="iQ" style="max-width:38%"><button class="x">✕</button>`;d.querySelector('.x').onclick=()=>d.remove();$('#fIngs').append(d)}
+function rowStep(s=''){const d=document.createElement('div');d.className='row';d.innerHTML=`<textarea rows="2" class="sT" placeholder="예: 물을 끓여요">${esc(s)}</textarea><button class="x">✕</button>`;d.querySelector('.x').onclick=()=>d.remove();$('#fSteps').append(d)}
+function rowVid(s={type:'youtube',url:'',label:'',timestamps:[]}){const d=document.createElement('div');d.className='box vrow';d.style.padding='8px';
+ d.innerHTML=`<div class="row"><select class="vT" style="max-width:34%"><option value="youtube">유튜브</option><option value="blog">블로그·글</option><option value="photo">사진 링크</option></select><input class="vU" placeholder="링크 주소" value="${esc(s.url)}"><button class="x">✕</button></div><input class="vL" placeholder="이름 (선택)" value="${esc(s.label)}" style="margin-bottom:6px"><textarea class="vM" rows="2" placeholder="시간 메모 (예: 3:20 양념 넣는 부분)">${esc((s.timestamps||[]).map(t=>tStr(t.t)+' '+t.label).join('\n'))}</textarea>`;
+ d.querySelector('.vT').value=s.type;d.querySelector('.x').onclick=()=>d.remove();$('#fVids').append(d)}
+function openEdit(r){editing=r||null;photos=[...(r?.photos||[])];$('#botNote').classList.toggle('hidden',!r?.bot);$('#fName').value=r?.name||'';$('#fCat').innerHTML=CATS.map(c=>`<option ${r?.cat===c?'selected':''}>${c}</option>`).join('');
+ $('#fTime').value=r?.time||'';$('#fServ').value=r?.serv??2;$('#fMemo').value=r?.memo||'';$('#fPhoto').value='';
+ $('#fIngs').innerHTML='';$('#fSteps').innerHTML='';$('#fVids').innerHTML='';
+ (r?.ings?.length?r.ings:[['','']]).forEach(i=>rowIng(i[0],i[1]));(r?.steps?.length?r.steps:['']).forEach(s=>rowStep(s));(r?.sources?.length?r.sources:[undefined]).forEach(s=>rowVid(s));
+ prevPhoto();show('vEdit')}
+function prevPhoto(){$('#fPrev').innerHTML=photos.map((p,i)=>`<div style="position:relative;flex:none"><img src="${esc(p)}" style="height:120px"><button data-rm="${i}" style="position:absolute;top:4px;right:4px;padding:2px 8px">✕</button></div>`).join('')}
+$('#fPrev').onclick=e=>{const i=e.target.dataset.rm;if(i!=null){photos.splice(+i,1);prevPhoto()}};
+function compress(file){return new Promise((ok,no)=>{const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{const s=Math.min(1,1000/Math.max(im.width,im.height));const c=document.createElement('canvas');c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok(c.toDataURL('image/jpeg',0.75))};im.onerror=no;im.src=fr.result};fr.onerror=no;fr.readAsDataURL(file)})}
+$('#fPhoto').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{photos.push(await compress(f));prevPhoto()}catch{toast('사진을 열 수 없어요')}e.target.value=''};
+$('#saveBtn').onclick=async()=>{const name=$('#fName').value.trim();if(!name){toast('음식 이름을 써 주세요');$('#fName').focus();return}
+ const base=editing?{...editing}:{id:uid(),created:Date.now(),fav:false};
+ const r=Object.assign(base,{name,cat:$('#fCat').value,time:+$('#fTime').value||0,serv:Math.max(1,+$('#fServ').value||1),memo:$('#fMemo').value.trim(),photos:[...photos],
+ ings:[...document.querySelectorAll('#fIngs .row')].map(d=>[d.querySelector('.iN').value.trim(),d.querySelector('.iQ').value.trim()]).filter(i=>i[0]),
+ steps:[...document.querySelectorAll('#fSteps .sT')].map(t=>t.value.trim()).filter(Boolean),
+ sources:[...document.querySelectorAll('#fVids .vrow')].map(d=>({type:d.querySelector('.vT').value,url:d.querySelector('.vU').value.trim(),label:d.querySelector('.vL').value.trim(),
+   timestamps:d.querySelector('.vM').value.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>({t:parseT(l),label:l.replace(/^\s*(\d+:)?\d{1,2}:\d{2}\s*/,'')})).filter(t=>t.t)})).filter(v=>v.url)});
+ if(r.bot)r.override=true;
+ await put(r);await load();renderList();openDetail(r.id);toast('저장했어요')};
+$('#cancelBtn').onclick=()=>editing?openDetail(editing.id):show('vList');
+$('#addIng').onclick=()=>rowIng();$('#addStep').onclick=()=>rowStep();$('#addVid').onclick=()=>rowVid();
+$('#addBtn').onclick=()=>openEdit(null);
+$('#quickBtn').onclick=()=>{$('#qkName').value='';$('#qkUrl').value='';show('vQuick');$('#qkName').focus()};
+$('#qkSave').onclick=async()=>{const name=$('#qkName').value.trim(),url=$('#qkUrl').value.trim();if(!name){toast('음식 이름을 써 주세요');return}if(!ytId(url)){toast('유튜브 링크가 맞는지 확인해 주세요');return}
+ const r={id:uid(),created:Date.now(),fav:false,name,cat:'기타',time:0,serv:2,memo:'',photos:[],ings:[],steps:[],sources:[{type:'youtube',url,label:'',timestamps:[]}]};await put(r);await load();renderList();openDetail(r.id);toast('저장했어요')};
+$('#backBtn').onclick=()=>{renderList();show('vList')};
+$('#q').oninput=renderList;
+$('#chips').onclick=e=>{const c=e.target.dataset.c;if(c){cat=c;renderList()}};
+$('#list').onclick=async e=>{const f=e.target.dataset.fav;if(f){e.stopPropagation();const r=recipes.find(x=>x.id===f);r.fav=!r.fav;if(r.bot)r.override=true;await put(r);await load();renderList();return}const c=e.target.closest('.card');if(c)openDetail(c.dataset.id)};
+$('#expBtn').onclick=async()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');const mine=await all();const b=new Blob([JSON.stringify({app:'기억해레시피',version:2,recipes:mine},null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`기억해레시피_백업_${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}.json`;document.body.append(a);a.click();a.remove();toast(`내가 저장한 ${fmt(mine.length)}개를 파일로 저장했어요`)};
+$('#impBtn').onclick=()=>$('#impFile').click();
+$('#impFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const j=JSON.parse(await f.text());const L=Array.isArray(j)?j:j.recipes;if(!Array.isArray(L))throw 0;let n=0;for(const r of L){if(!r||!r.id)continue;if(!r.hiddenDel){if(!r.name)continue;r.ings=r.ings||[];r.steps=r.steps||[];r.sources=r.sources||[];r.photos=r.photos||[];r.cat=r.cat||'기타';r.serv=r.serv||1}await put(r);n++}await load();renderList();toast(`${fmt(n)}개 불러왔어요`)}catch{toast('백업 파일이 아니에요')}e.target.value=''};
+(async()=>{await openDB();await fetchBots();await load();renderList();
+ if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{})})();
+</script></body></html>
