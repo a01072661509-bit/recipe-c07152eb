@@ -176,7 +176,7 @@ $('#saveBtn').onclick=async()=>{const name=$('#fName').value.trim();if(!name){to
 $('#cancelBtn').onclick=()=>editing?openDetail(editing.id):show('vList');
 $('#addIng').onclick=()=>rowIng();$('#addStep').onclick=()=>rowStep();$('#addVid').onclick=()=>rowVid();
 $('#addBtn').onclick=()=>openEdit(null);
-$('#quickBtn').onclick=()=>{$('#qkName').value='';$('#qkUrl').value='';$('#qkPhoto').value='';$('#qkMsg').textContent='';$('#qkMode').textContent=getKey()?'🤖 AI 열쇠가 있어요: 영상·글·사진을 AI가 읽어요.':'AI 열쇠가 없어요: 영상 설명란·블로그 글에서 찾아요. (사진 읽기는 설정에서 무료 열쇠를 넣으면 돼요)';show('vQuick');$('#qkUrl').focus()};
+$('#quickBtn').onclick=()=>{$('#vQuick details').open=false;$('#qkName').value='';$('#qkUrl').value='';$('#qkPhoto').value='';$('#qkMsg').textContent='';$('#qkMode').textContent=getKey()?'🤖 AI 열쇠가 있어요: 영상·글·사진을 AI가 읽어요.':'AI 열쇠가 없어요: 영상 설명란·블로그 글에서 찾아요. (사진 읽기는 설정에서 무료 열쇠를 넣으면 돼요)';show('vQuick');$('#qkUrl').focus()};
 $('#setBtn').onclick=()=>{$('#setKey').value=getKey();$('#setModel').value=localStorage.getItem('gmModel')||'';$('#setMsg').textContent='';show('vSet')};
 $('#setSave').onclick=()=>{localStorage.setItem('gmKey',$('#setKey').value.trim());localStorage.setItem('gmModel',$('#setModel').value.trim());$('#setMsg').textContent='저장했어요.'};
 $('#setDel').onclick=()=>{localStorage.removeItem('gmKey');$('#setKey').value='';$('#setMsg').textContent='열쇠를 지웠어요.'};
