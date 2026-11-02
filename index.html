@@ -45,16 +45,32 @@ ol{padding-left:22px}ol li{margin-bottom:10px;line-height:1.6}
  <div class="search"><input id="q" placeholder="음식 이름이나 재료로 찾기"></div>
  <div class="chips" id="chips"></div>
  <div class="grid" id="list"></div>
- <div class="foot"><button class="ghost" id="addBtn">+ 직접 추가</button><button class="ghost" id="quickBtn">▶ 영상 링크로 추가</button><button class="ghost" id="expBtn">백업 저장</button><button class="ghost" id="impBtn">백업 불러오기</button><input type="file" id="impFile" accept=".json,application/json" class="hidden"></div>
- <div style="text-align:center"><button class="link" id="trashBtn">지운 레시피 되돌리기</button></div>
+ <div class="foot"><button class="ghost" id="addBtn">+ 직접 추가</button><button class="ghost" id="quickBtn">✨ 링크·사진으로 추가</button><button class="ghost" id="expBtn">백업 저장</button><button class="ghost" id="impBtn">백업 불러오기</button><input type="file" id="impFile" accept=".json,application/json" class="hidden"></div>
+ <div style="text-align:center"><button class="link" id="trashBtn">지운 레시피 되돌리기</button> · <button class="link" id="setBtn">설정(AI 열쇠)</button></div>
 </section>
 <section id="vTrash" class="hidden"><div class="box"><b>지운 레시피</b><div class="sub">되돌리면 다시 목록에 나와요.</div><div id="trashList"></div></div></section>
 <section id="vQuick" class="hidden"><div class="box">
- <label>음식 이름</label><input id="qkName" placeholder="예: 된장찌개">
- <label>유튜브 링크</label><input id="qkUrl" placeholder="유튜브 주소를 붙여넣으세요">
- <button class="pri big" id="qkSave">저장하기</button></div></section>
+ <b style="font-size:18px">✨ 링크나 사진으로 자동 채우기</b>
+ <div class="sub" style="margin-top:4px">유튜브·블로그 링크를 붙여넣거나 사진을 고르면 재료와 순서를 알아서 채워요. 저장 전에 한 번 확인해 주세요.</div>
+ <label>유튜브·블로그 링크</label><input id="qkUrl" placeholder="여기에 링크를 붙여넣으세요" inputmode="url">
+ <label>또는 레시피 사진</label><input id="qkPhoto" type="file" accept="image/*">
+ <div id="qkMode" class="sub" style="margin-top:10px"></div>
+ <button class="pri big" id="qkAuto">✨ 자동으로 채우기</button>
+ <div id="qkMsg" class="sub" style="margin-top:8px;white-space:pre-wrap"></div>
+ <details style="margin-top:14px"><summary class="sub">이름과 링크만 빨리 저장하기</summary><label>음식 이름</label><input id="qkName" placeholder="예: 된장찌개"><button class="big" id="qkSave">링크만 저장</button></details>
+</div></section>
+<section id="vSet" class="hidden"><div class="box"><b style="font-size:18px">⚙️ 설정</b>
+ <label>무료 AI 열쇠 (Gemini API 키)</label>
+ <div class="sub">넣어 두면 영상 내용·사진 속 글씨까지 읽어서 더 정확하게 채워요. 열쇠는 이 휴대폰에만 저장되고 다른 곳으로 보내지 않아요(구글 AI에 물어볼 때만 써요).</div>
+ <input id="setKey" placeholder="AIza로 시작하는 글자" autocomplete="off" style="margin-top:8px">
+ <label>AI 모델 이름 (보통 그대로 두세요)</label><input id="setModel" placeholder="gemini-2.5-flash">
+ <div class="row" style="margin-top:12px"><button class="pri" id="setSave" style="flex:2">저장</button><button id="setTest" style="flex:1">시험해 보기</button><button class="x" id="setDel" style="flex:1">열쇠 지우기</button></div>
+ <div id="setMsg" class="sub" style="margin-top:8px;white-space:pre-wrap"></div>
+ <details style="margin-top:12px"><summary class="sub">무료 열쇠 받는 방법</summary><ol class="sub"><li>휴대폰 크롬에서 aistudio.google.com 에 들어가 구글 계정으로 로그인해요.</li><li>약관에 동의하고 「Get API key」(API 키 받기)를 눌러요.</li><li>「Create API key」를 누르면 AIza… 로 시작하는 글자가 나와요. 복사해요.</li><li>여기 칸에 붙여넣고 「저장」→「시험해 보기」를 눌러요.</li></ol>결제 정보를 넣지 않으면 돈이 나가지 않아요(무료 한도를 넘으면 잠시 쉬었다 다시 하면 돼요).</details>
+</div></section>
 <section id="vDetail" class="hidden"></section>
 <section id="vEdit" class="hidden"><div class="box">
+ <div id="autoNote" class="sub hidden" style="background:#e8f5e9;color:#2e6b3a;padding:10px;border-radius:10px;white-space:pre-wrap;margin-bottom:6px"></div>
  <div id="botNote" class="sub hidden" style="background:var(--or2);padding:8px;border-radius:10px">이 레시피를 고치면 내 휴대폰에만 따로 저장돼요.</div>
  <label>음식 이름 *</label><input id="fName">
  <label>종류</label><select id="fCat"></select>
@@ -92,7 +108,7 @@ async function load(){const mine=await all();const map=new Map(bots.map(b=>[b.id
  for(const m of mine){if(m.name)map.set(m.id,m);else if(map.has(m.id))map.set(m.id,{...map.get(m.id),deleted:true,deletedAt:m.deletedAt,stub:true})}
  const L=[...map.values()];trash=L.filter(r=>r.deleted).sort((a,b)=>(b.deletedAt||0)-(a.deletedAt||0));
  recipes=L.filter(r=>!r.deleted);recipes.sort((a,b)=>(b.fav-a.fav)||((b.created||0)-(a.created||0))||a.name.localeCompare(b.name,'ko'))}
-function show(v){['vList','vDetail','vEdit','vQuick','vTrash'].forEach(x=>$('#'+x).classList.toggle('hidden',x!==v));$('#backBtn').classList.toggle('hidden',v==='vList');scrollTo(0,0)}
+function show(v){['vList','vDetail','vEdit','vQuick','vTrash','vSet'].forEach(x=>$('#'+x).classList.toggle('hidden',x!==v));$('#backBtn').classList.toggle('hidden',v==='vList');scrollTo(0,0)}
 function cover(r){if(r.photos?.length)return r.photos[0];const v=(r.sources||[]).map(x=>ytId(x.url)).find(Boolean);return v?`https://img.youtube.com/vi/${v}/hqdefault.jpg`:''}
 function renderList(){$('#chips').innerHTML=['전체','★ 즐겨찾기',...CATS].map(c=>`<button class="chip ${c===cat?'on':''}" data-c="${c}">${c}</button>`).join('');
  const q=$('#q').value.trim().toLowerCase();
@@ -139,7 +155,7 @@ function rowStep(s=''){const d=document.createElement('div');d.className='row';d
 function rowVid(s={type:'youtube',url:'',label:'',timestamps:[]}){const d=document.createElement('div');d.className='box vrow';d.style.padding='8px';
  d.innerHTML=`<div class="row"><select class="vT" style="max-width:34%"><option value="youtube">유튜브</option><option value="blog">블로그·글</option><option value="photo">사진 링크</option></select><input class="vU" placeholder="링크 주소" value="${esc(s.url)}"><button class="x">✕</button></div><input class="vL" placeholder="이름 (선택)" value="${esc(s.label)}" style="margin-bottom:6px"><textarea class="vM" rows="2" placeholder="시간 메모 (예: 3:20 양념 넣는 부분)">${esc((s.timestamps||[]).map(t=>tStr(t.t)+' '+t.label).join('\n'))}</textarea>`;
  d.querySelector('.vT').value=s.type;d.querySelector('.x').onclick=()=>d.remove();$('#fVids').append(d)}
-function openEdit(r){editing=r||null;photos=[...(r?.photos||[])];$('#botNote').classList.toggle('hidden',!r?.bot);$('#fName').value=r?.name||'';$('#fCat').innerHTML=CATS.map(c=>`<option ${r?.cat===c?'selected':''}>${c}</option>`).join('');
+function openEdit(r,draft){$('#autoNote').classList.add('hidden');editing=r||null;if(draft)r=draft;photos=[...(r?.photos||[])];$('#botNote').classList.toggle('hidden',!r?.bot);$('#fName').value=r?.name||'';$('#fCat').innerHTML=CATS.map(c=>`<option ${r?.cat===c?'selected':''}>${c}</option>`).join('');
  $('#fTime').value=r?.time||'';$('#fServ').value=r?.serv??2;$('#fMemo').value=r?.memo||'';$('#fPhoto').value='';
  $('#fIngs').innerHTML='';$('#fSteps').innerHTML='';$('#fVids').innerHTML='';
  (r?.ings?.length?r.ings:[['','']]).forEach(i=>rowIng(i[0],i[1]));(r?.steps?.length?r.steps:['']).forEach(s=>rowStep(s));(r?.sources?.length?r.sources:[undefined]).forEach(s=>rowVid(s));
@@ -160,7 +176,12 @@ $('#saveBtn').onclick=async()=>{const name=$('#fName').value.trim();if(!name){to
 $('#cancelBtn').onclick=()=>editing?openDetail(editing.id):show('vList');
 $('#addIng').onclick=()=>rowIng();$('#addStep').onclick=()=>rowStep();$('#addVid').onclick=()=>rowVid();
 $('#addBtn').onclick=()=>openEdit(null);
-$('#quickBtn').onclick=()=>{$('#qkName').value='';$('#qkUrl').value='';show('vQuick');$('#qkName').focus()};
+$('#quickBtn').onclick=()=>{$('#qkName').value='';$('#qkUrl').value='';$('#qkPhoto').value='';$('#qkMsg').textContent='';$('#qkMode').textContent=getKey()?'🤖 AI 열쇠가 있어요: 영상·글·사진을 AI가 읽어요.':'AI 열쇠가 없어요: 영상 설명란·블로그 글에서 찾아요. (사진 읽기는 설정에서 무료 열쇠를 넣으면 돼요)';show('vQuick');$('#qkUrl').focus()};
+$('#setBtn').onclick=()=>{$('#setKey').value=getKey();$('#setModel').value=localStorage.getItem('gmModel')||'';$('#setMsg').textContent='';show('vSet')};
+$('#setSave').onclick=()=>{localStorage.setItem('gmKey',$('#setKey').value.trim());localStorage.setItem('gmModel',$('#setModel').value.trim());$('#setMsg').textContent='저장했어요.'};
+$('#setDel').onclick=()=>{localStorage.removeItem('gmKey');$('#setKey').value='';$('#setMsg').textContent='열쇠를 지웠어요.'};
+$('#setTest').onclick=async()=>{localStorage.setItem('gmKey',$('#setKey').value.trim());localStorage.setItem('gmModel',$('#setModel').value.trim());$('#setMsg').textContent='확인하는 중…';try{const r=await gemini([{text:'「좋아요」라고만 JSON 문자열로 답해 주세요.'}]);$('#setMsg').textContent='✅ 잘 돼요! ('+usedModel+')'}catch(e){$('#setMsg').textContent='❌ '+e.message}};
+$('#qkAuto').onclick=autoFill;
 $('#qkSave').onclick=async()=>{const name=$('#qkName').value.trim(),url=$('#qkUrl').value.trim();if(!name){toast('음식 이름을 써 주세요');return}if(!ytId(url)){toast('유튜브 링크가 맞는지 확인해 주세요');return}
  const r={id:uid(),created:Date.now(),fav:false,name,cat:'기타',time:0,serv:2,memo:'',photos:[],ings:[],steps:[],sources:[{type:'youtube',url,label:'',timestamps:[]}]};await put(r);await load();renderList();openDetail(r.id);toast('저장했어요')};
 $('#backBtn').onclick=()=>{renderList();show('vList')};
@@ -170,6 +191,61 @@ $('#list').onclick=async e=>{if(lpFired){lpFired=false;return}if(e.target.datase
 $('#expBtn').onclick=async()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');const mine=await all();const b=new Blob([JSON.stringify({app:'기억해레시피',version:2,recipes:mine},null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`기억해레시피_백업_${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}.json`;document.body.append(a);a.click();a.remove();toast(`내가 저장한 ${fmt(mine.length)}개를 파일로 저장했어요`)};
 $('#impBtn').onclick=()=>$('#impFile').click();
 $('#impFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const j=JSON.parse(await f.text());const L=Array.isArray(j)?j:j.recipes;if(!Array.isArray(L))throw 0;let n=0;for(const r of L){if(!r||!r.id)continue;if(r.name){if(!r.name)continue;r.ings=r.ings||[];r.steps=r.steps||[];r.sources=r.sources||[];r.photos=r.photos||[];r.cat=r.cat||'기타';r.serv=r.serv||1}await put(r);n++}await load();renderList();toast(`${fmt(n)}개 불러왔어요`)}catch{toast('백업 파일이 아니에요')}e.target.value=''};
+// ===== 자동 채우기 =====
+const getKey=()=>localStorage.getItem('gmKey')||'';let usedModel='';
+const JINA='https://r.jina.ai/';
+async function jina(url,html){const r=await fetch(JINA+url,{headers:html?{'X-Respond-With':'html'}:{'X-Return-Format':'markdown'}});if(!r.ok)throw new Error('글을 가져오지 못했어요 ('+r.status+')');return r.text()}
+async function ytInfo(url){const id=ytId(url);let title='',author='',desc='';
+ try{const o=await (await fetch('https://www.youtube.com/oembed?format=json&url='+encodeURIComponent(ytUrl(id)))).json();title=o.title||'';author=o.author_name||''}catch(e){}
+ try{const h=await jina(ytUrl(id)+'&hl=ko',true);const m=h.match(/"attributedDescription":\{"content":"((?:[^"\\]|\\.)*)"/)||h.match(/"shortDescription":"((?:[^"\\]|\\.)*)"/);if(m)desc=JSON.parse('"'+m[1]+'"');if(!title){const t=h.match(/<title>([^<]*)<\/title>/);if(t)title=t[1].replace(/ - YouTube$/,'')}}catch(e){}
+ return{id,title,author,desc}}
+const QNUM='[\\d½⅓⅔¼¾⅛]';
+function cleanTitle(t){return String(t||'').replace(/\[[^\]]*\]|\([^)]*\)|#\S+/g,' ').split(/[|ㅣ｜!?~]/)[0].replace(/\s+/g,' ').trim().slice(0,40)}
+function parseText(text){const L=String(text||'').split(/\r?\n/).map(l=>l.replace(/^[\s\-•·*▶►✔✅◆■□○●▪︎>]+/,'').replace(/\*\*/g,'').trim());
+ const ings=[],steps=[],ts=[];let mode='';
+ const isIngH=l=>/^[\[【<(#\s]*(재료|준비물|ingredients?|材料)/i.test(l)&&l.length<30;
+ const isStepH=l=>/^[\[【<(#\s]*(만드는\s*(법|방법|순서)|조리\s*(법|순서|방법)|레시피\s*순서|순서|directions?|instructions?|method|steps?|how to)/i.test(l)&&l.length<30;
+ const isOtherH=l=>/^[\[【<#]/.test(l)&&l.length<30;
+ for(const l of L){if(!l)continue;
+  const tm=l.match(/^((?:\d+:)?\d{1,2}:\d{2})\s+(.{1,60})$/);if(tm){ts.push({t:parseT(tm[1]),label:tm[2].replace(/^[-–:]\s*/,'')});continue}
+  if(isIngH(l)){mode='i';continue}if(isStepH(l)){mode='s';continue}if(isOtherH(l)&&mode){mode='';continue}
+  if(/^=+$|^-{3,}$/.test(l)){if(mode==='s'&&steps.length)mode='';continue}
+  if(mode==='i'){if(l.length>80)continue;for(const part of l.split(/\s*[,，、]\s*(?![\d])/)){const a=part.match(new RegExp('^('+QNUM+'[\\d./½⅓⅔¼¾\\s]*\\s*(?:[a-zA-Z]+\\.?|[가-힣]{1,3})?(?:\\s*\\([^)]*\\))?)\\s+(.+)$'));const b=part.match(new RegExp('^(.+?)\\s*[:：]?\\s+(('+QNUM+'|약간|조금|적당|한\\s|두\\s|반).*)$'));
+    if(b&&!/^\d/.test(part))ings.push([b[1].trim(),b[2].trim()]);else if(a)ings.push([a[2].trim(),a[1].trim()]);else ings.push([part.trim(),''])}}
+  else if(mode==='s'||/^(\d{1,2})[.)]\s+\S/.test(l)&&ings.length){const st=l.replace(/^(step\s*)?\d{1,2}[.)\s]\s*/i,'').trim();if(st.length>2){steps.push(st);if(!mode)mode='s'}}}
+ return{ings,steps,ts}}
+async function gemini(parts){const key=getKey();if(!key)throw new Error('AI 열쇠가 없어요');const models=[localStorage.getItem('gmModel')||'gemini-2.5-flash','gemini-flash-latest','gemini-2.5-flash-lite'].filter((v,i,a)=>v&&a.indexOf(v)===i);let last;
+ for(const m of models){const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify({contents:[{role:'user',parts}],generationConfig:{responseMimeType:'application/json',temperature:0.2}})});
+  const j=await r.json().catch(()=>({}));if(r.ok){usedModel=m;const t=(j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('');return JSON.parse(t)}
+  last=j.error?.message||('오류 '+r.status);if(r.status===400&&/API key/i.test(last))throw new Error('AI 열쇠가 맞지 않아요. 다시 확인해 주세요.');if(r.status===429)throw new Error('오늘 무료 사용량을 다 썼거나 너무 자주 눌렀어요. 잠시 뒤 다시 해 주세요.');if(r.status!==404)break}
+ throw new Error('AI가 답하지 못했어요: '+last)}
+const PROMPT=`당신은 요리 레시피 정리 도우미입니다. 주어진 자료(영상/글/사진)에서 레시피를 찾아 한국어로 정리하세요. 자료에 없는 내용은 지어내지 말고 비워 두세요.
+반드시 이 JSON 하나만 답하세요:
+{"name":"음식 이름(짧게)","category":"한식|양식|중식|일식|디저트|기타 중 하나","minutes":숫자 또는 0,"servings":숫자 또는 0,"ingredients":[{"name":"재료","amount":"양 (예: 200g, 1큰술, 1/2개)"}],"steps":["쉬운 말로 한 단계씩"],"timestamps":[{"t":"분:초","label":"그 장면 설명(영상일 때만, 중요한 3~6개)"}],"memo":"팁이 있으면 한두 줄"}`;
+async function fileToB64(f){const d=await compress(f);return d}
+async function autoFill(){const url=$('#qkUrl').value.trim(),f=$('#qkPhoto').files[0],msg=t=>$('#qkMsg').textContent=t,key=getKey();
+ if(!url&&!f){msg('링크를 붙여넣거나 사진을 골라 주세요.');return}
+ $('#qkAuto').disabled=true;msg('읽는 중이에요… (10~40초 걸릴 수 있어요)');
+ const d={name:'',cat:'기타',time:0,serv:2,memo:'',photos:[],ings:[],steps:[],sources:[]};let got=null,note='';
+ try{
+  if(f){const du=await fileToB64(f);d.photos.push(du);
+   if(key){got=await gemini([{text:PROMPT+'\n자료: 레시피 사진입니다. 사진 속 글씨를 읽어 주세요.'},{inlineData:{mimeType:'image/jpeg',data:du.split(',')[1]}}]);note='AI가 사진을 읽었어요.'}
+   else note='사진은 넣었어요. 사진 속 글씨를 읽으려면 설정에서 무료 AI 열쇠를 넣어 주세요.'}
+  if(url){const id=ytId(url);
+   if(id){d.sources.push({type:'youtube',url:ytUrl(id),label:'',timestamps:[]});const info=await ytInfo(url);d.name=cleanTitle(info.title);d.sources[0].label=info.author||'';
+    if(key){try{got=await gemini([{fileData:{fileUri:ytUrl(id),mimeType:'video/*'}},{text:PROMPT+'\n자료: 위 유튜브 영상. 참고로 영상 설명란:\n'+(info.desc||'(없음)').slice(0,6000)}]);note='AI가 영상을 보고 채웠어요.'}catch(e){note='AI가 영상을 못 읽어서 설명란에서 찾았어요. ('+e.message+')'}}
+    if(!got){const p=parseText(info.desc);d.ings=p.ings;d.steps=p.steps;d.sources[0].timestamps=p.ts;
+     note=note||(p.ings.length||p.steps.length?'영상 설명란에서 재료 '+fmt(p.ings.length)+'개, 순서 '+fmt(p.steps.length)+'개를 찾았어요.':'영상 설명란에 레시피가 없어요. 이름과 링크만 채웠어요.'+(key?'':'\n(설정에서 무료 AI 열쇠를 넣으면 영상 내용까지 읽어요)'))}}
+   else{d.sources.push({type:'blog',url,label:'',timestamps:[]});let md='';try{md=await jina(url)}catch(e){note='글을 가져오지 못했어요: '+e.message}
+    const tt=md.match(/^Title:\s*(.+)$/m);d.name=cleanTitle(tt?tt[1]:'');d.sources[0].label=(tt?tt[1]:'').slice(0,60);
+    const body=md.replace(/!?\[([^\]]*)\]\([^)]*\)/g,'$1');
+    if(key&&md){try{got=await gemini([{text:PROMPT+'\n자료: 블로그 글\n'+body.slice(0,30000)}]);note='AI가 글을 읽고 채웠어요.'}catch(e){note='AI 오류라 글에서 직접 찾았어요. ('+e.message+')'}}
+    if(!got&&md){const p=parseText(body);d.ings=p.ings;d.steps=p.steps;note=note||(p.ings.length||p.steps.length?'글에서 재료 '+fmt(p.ings.length)+'개, 순서 '+fmt(p.steps.length)+'개를 찾았어요.':'글에서 레시피를 못 찾았어요. 이름과 링크만 채웠어요.')}}}
+  if(got){d.name=got.name||d.name;d.cat=CATS.includes(got.category)?got.category:'기타';d.time=+got.minutes||0;d.serv=+got.servings||2;d.memo=got.memo||'';
+   d.ings=(got.ingredients||[]).map(i=>[String(i.name||''),String(i.amount||'')]).filter(i=>i[0]);d.steps=(got.steps||[]).map(String).filter(Boolean);
+   const yt=d.sources.find(s=>s.type==='youtube');if(yt)yt.timestamps=(got.timestamps||[]).map(t=>({t:parseT(String(t.t)),label:t.label||''})).filter(t=>t.t)}
+ }catch(e){msg('문제가 생겼어요: '+e.message);$('#qkAuto').disabled=false;return}
+ $('#qkAuto').disabled=false;openEdit(null,d);toast(note.split('\n')[0]);$('#autoNote').textContent='✨ '+note+'\n틀린 곳이 있으면 고치고 「저장하기」를 눌러 주세요.';$('#autoNote').classList.remove('hidden')}
 (async()=>{await openDB();await fetchBots();await load();renderList();
  if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{})})();
 </script></body></html>
