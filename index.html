@@ -34,6 +34,9 @@ ol{padding-left:22px}ol li{margin-bottom:10px;line-height:1.6}
 .serv{display:flex;align-items:center;gap:10px}.serv button{font-size:22px;width:44px;background:var(--or2)}
 .hidden{display:none!important}.empty{text-align:center;color:var(--mu);padding:50px 10px;grid-column:1/-1}
 .foot{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:22px 0 8px}
+.more{position:absolute;top:6px;left:6px;background:#fffc;border-radius:50%;width:38px;height:38px;padding:0;font-size:20px;font-weight:700}
+.sheet{position:fixed;inset:0;background:#0006;z-index:20;display:flex;align-items:flex-end}.sheet>div{background:var(--card);width:100%;border-radius:20px 20px 0 0;padding:16px 16px 28px}.sheet button{width:100%;margin-top:8px;font-size:17px;padding:14px}
+.card{-webkit-touch-callout:none;user-select:none}.link{background:none;color:var(--mu);text-decoration:underline;font-size:14px}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#4a3728;color:#fff;padding:10px 18px;border-radius:20px;display:none;z-index:9}
 </style></head><body>
 <header><h1 id="ttl">🍲 기억해 레시피</h1><button id="backBtn" class="hidden" style="background:#fff3;color:#fff">← 뒤로</button></header>
@@ -43,7 +46,9 @@ ol{padding-left:22px}ol li{margin-bottom:10px;line-height:1.6}
  <div class="chips" id="chips"></div>
  <div class="grid" id="list"></div>
  <div class="foot"><button class="ghost" id="addBtn">+ 직접 추가</button><button class="ghost" id="quickBtn">▶ 영상 링크로 추가</button><button class="ghost" id="expBtn">백업 저장</button><button class="ghost" id="impBtn">백업 불러오기</button><input type="file" id="impFile" accept=".json,application/json" class="hidden"></div>
+ <div style="text-align:center"><button class="link" id="trashBtn">지운 레시피 되돌리기</button></div>
 </section>
+<section id="vTrash" class="hidden"><div class="box"><b>지운 레시피</b><div class="sub">되돌리면 다시 목록에 나와요.</div><div id="trashList"></div></div></section>
 <section id="vQuick" class="hidden"><div class="box">
  <label>음식 이름</label><input id="qkName" placeholder="예: 된장찌개">
  <label>유튜브 링크</label><input id="qkUrl" placeholder="유튜브 주소를 붙여넣으세요">
@@ -82,14 +87,17 @@ function fromBot(b){return{id:'b_'+b.id,botId:b.id,bot:true,name:b.name||'',cat:
  sources:(b.sources||[]).map(s=>({type:s.type||(ytId(s.url)?'youtube':'blog'),url:s.url||'',label:s.label||'',timestamps:(s.timestamps||[]).map(t=>({t:parseT(t.t),label:t.label||''}))}))}}
 let bots=[],recipes=[],cat='전체',cur=null,editing=null,photos=[],servNow=1,checked={};
 async function fetchBots(){try{const r=await fetch('recipes.json',{cache:'no-store'});const j=await r.json();bots=(Array.isArray(j)?j:j.recipes||[]).map(fromBot)}catch(e){bots=[]}}
-async function load(){const mine=await all();const map=new Map(bots.map(b=>[b.id,b]));for(const m of mine)map.set(m.id,m);
- recipes=[...map.values()].filter(r=>!r.hiddenDel);recipes.sort((a,b)=>(b.fav-a.fav)||((b.created||0)-(a.created||0))||a.name.localeCompare(b.name,'ko'))}
-function show(v){['vList','vDetail','vEdit','vQuick'].forEach(x=>$('#'+x).classList.toggle('hidden',x!==v));$('#backBtn').classList.toggle('hidden',v==='vList');scrollTo(0,0)}
+let trash=[];
+async function load(){const mine=await all();const map=new Map(bots.map(b=>[b.id,b]));
+ for(const m of mine){if(m.name)map.set(m.id,m);else if(map.has(m.id))map.set(m.id,{...map.get(m.id),deleted:true,deletedAt:m.deletedAt,stub:true})}
+ const L=[...map.values()];trash=L.filter(r=>r.deleted).sort((a,b)=>(b.deletedAt||0)-(a.deletedAt||0));
+ recipes=L.filter(r=>!r.deleted);recipes.sort((a,b)=>(b.fav-a.fav)||((b.created||0)-(a.created||0))||a.name.localeCompare(b.name,'ko'))}
+function show(v){['vList','vDetail','vEdit','vQuick','vTrash'].forEach(x=>$('#'+x).classList.toggle('hidden',x!==v));$('#backBtn').classList.toggle('hidden',v==='vList');scrollTo(0,0)}
 function cover(r){if(r.photos?.length)return r.photos[0];const v=(r.sources||[]).map(x=>ytId(x.url)).find(Boolean);return v?`https://img.youtube.com/vi/${v}/hqdefault.jpg`:''}
 function renderList(){$('#chips').innerHTML=['전체','★ 즐겨찾기',...CATS].map(c=>`<button class="chip ${c===cat?'on':''}" data-c="${c}">${c}</button>`).join('');
  const q=$('#q').value.trim().toLowerCase();
  const L=recipes.filter(r=>(cat==='전체'||(cat==='★ 즐겨찾기'?r.fav:r.cat===cat))&&(!q||r.name.toLowerCase().includes(q)||r.ings.some(i=>i[0].toLowerCase().includes(q))));
- $('#list').innerHTML=L.length?L.map(r=>{const c=cover(r);return `<div class="card" data-id="${r.id}"><div class="im" ${c?`style="background-image:url('${esc(c)}')"`:''}>${c?'':'🍲'}</div><button class="star ${r.fav?'on':''}" data-fav="${r.id}" aria-label="즐겨찾기">★</button><div class="t"><b>${esc(r.name)}</b><span class="sub"><span class="badge">${esc(r.cat)}</span>${r.time?fmt(r.time)+'분':''}${(r.sources||[]).some(s=>s.type==='youtube')?' · ▶ 영상':''}</span></div></div>`}).join(''):'<div class="empty">찾는 레시피가 없어요.</div>';
+ $('#list').innerHTML=L.length?L.map(r=>{const c=cover(r);return `<div class="card" data-id="${r.id}"><div class="im" ${c?`style="background-image:url('${esc(c)}')"`:''}>${c?'':'🍲'}</div><button class="star ${r.fav?'on':''}" data-fav="${r.id}" aria-label="즐겨찾기">★</button><button class="more" data-more="${r.id}" aria-label="더보기">⋯</button><div class="t"><b>${esc(r.name)}</b><span class="sub"><span class="badge">${esc(r.cat)}</span>${r.time?fmt(r.time)+'분':''}${(r.sources||[]).some(s=>s.type==='youtube')?' · ▶ 영상':''}</span></div></div>`}).join(''):(recipes.length?'<div class="empty">찾는 레시피가 없어요.</div>':'<div class="empty">아직 레시피가 없어요.<br>유튜브·블로그 링크나 사진을 보내 주세요.</div>');
  $('#ttl').textContent=`🍲 기억해 레시피 · ${fmt(recipes.length)}개`}
 function srcHtml(s){const id=s.type==='youtube'?ytId(s.url):null;const lab=s.label?`<div style="font-weight:700;margin:8px 0 0">${esc(s.label)}</div>`:'';
  if(s.type==='youtube'&&id)return `<div class="src"><img src="https://img.youtube.com/vi/${id}/hqdefault.jpg" alt="" onerror="this.remove()">${lab}<a class="ytgo" href="${ytUrl(id)}" target="_blank" rel="noopener"><button class="big yt">▶ 영상 보기</button></a><div>${(s.timestamps||[]).map(t=>`<a class="tsa" href="${ytUrl(id,t.t)}" target="_blank" rel="noopener"><button class="tsb">⏱ ${tStr(t.t)} ${esc(t.label)}</button></a>`).join('')}</div></div>`;
@@ -104,13 +112,27 @@ function renderDetail(){const r=cur,f=servNow/(r.serv||1);
  <div class="ing">${r.ings.map((i,k)=>`<label><input type="checkbox" data-k="${k}" ${checked[k]?'checked':''}><span class="${checked[k]?'done':''}">${esc(i[0])} <b>${esc(scaleQty(i[1],f))}</b></span></label>`).join('')||'<div class="sub">재료가 아직 없어요</div>'}</div></div>
  ${r.steps.length?`<div class="box"><b>만드는 순서</b><ol>${r.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol></div>`:''}
  ${r.memo?`<div class="box"><b>메모</b><div style="white-space:pre-wrap">${esc(r.memo)}</div></div>`:''}
- <div class="row"><button class="pri" id="dEdit" style="flex:1">고치기</button>${r.override?'<button id="dReset" style="flex:1">원래대로</button>':''}<button class="danger" id="dDel" style="flex:1">지우기</button></div>`;
+ <div class="row"><button class="pri" id="dEdit" style="flex:1">고치기</button>${r.override?'<button id="dReset" style="flex:1">원래대로</button>':''}</div><button class="danger big" id="dDel" style="margin:18px 0 30px">🗑 이 레시피 지우기</button>`;
  $('#dFav').onclick=async()=>{r.fav=!r.fav;if(r.bot)r.override=true;await put(r);await load();renderDetail()};
  $('#sMinus').onclick=()=>{if(servNow>1){servNow--;renderDetail()}};$('#sPlus').onclick=()=>{servNow++;renderDetail()};
  $('#vDetail').querySelectorAll('[data-k]').forEach(c=>c.onchange=()=>{checked[c.dataset.k]=c.checked;renderDetail()});
  $('#dEdit').onclick=()=>openEdit(r);
  if($('#dReset'))$('#dReset').onclick=async()=>{if(!confirm('내가 고친 내용을 버리고 원래대로 돌릴까요?'))return;await del(r.id);await load();openDetail(r.id)};
- $('#dDel').onclick=async()=>{if(!confirm(`"${r.name}" 레시피를 지울까요?\n지우면 되돌릴 수 없어요.`))return;if(r.bot)await put({id:r.id,hiddenDel:true});else await del(r.id);await load();renderList();show('vList');toast('지웠어요')}}
+ $('#dDel').onclick=()=>removeRecipe(r);}
+async function removeRecipe(r){if(!confirm(`"${r.name}" 레시피를 지울까요?\n지운 레시피는 맨 아래 「지운 레시피 되돌리기」에서 다시 살릴 수 있어요.`))return false;
+ const now=Date.now();if(r.bot&&!r.override)await put({id:r.id,deleted:true,deletedAt:now});else await put({...r,deleted:true,deletedAt:now});
+ await load();renderList();show('vList');toast('지웠어요');return true}
+async function restore(id){const r=trash.find(x=>x.id===id);if(!r)return;if(r.stub)await del(id);else{const m={...r};delete m.deleted;delete m.deletedAt;await put(m)}await load();renderTrash();toast('되돌렸어요')}
+async function purge(id){const r=trash.find(x=>x.id===id);if(!confirm(`"${r.name}"을(를) 완전히 지울까요?\n이건 되돌릴 수 없어요.`))return;if(r.bot)await put({id,deleted:true,deletedAt:r.deletedAt,purged:true});else await del(id);await load();renderTrash()}
+function renderTrash(){const T=trash.filter(r=>!r.purged);$('#trashList').innerHTML=T.length?T.map(r=>`<div class="row" style="align-items:center;margin-top:10px"><div style="flex:1"><b>${esc(r.name)}</b><div class="sub">${new Date(r.deletedAt||0).toLocaleDateString('ko-KR')} 지움</div></div><button class="pri" data-rs="${r.id}">되돌리기</button>${r.bot?'':`<button class="x" data-pg="${r.id}">완전 삭제</button>`}</div>`).join(''):'<div class="empty">지운 레시피가 없어요.</div>'}
+$('#trashList').onclick=e=>{if(e.target.dataset.rs)restore(e.target.dataset.rs);if(e.target.dataset.pg)purge(e.target.dataset.pg)};
+$('#trashBtn').onclick=()=>{renderTrash();show('vTrash')};
+function openMenu(id){const r=recipes.find(x=>x.id===id);if(!r)return;const d=document.createElement('div');d.className='sheet';d.innerHTML=`<div><b style="font-size:18px">${esc(r.name)}</b><button data-a="open">열어 보기</button><button data-a="edit">고치기</button><button class="danger" data-a="del">🗑 지우기</button><button data-a="close">닫기</button></div>`;
+ d.onclick=async e=>{const a=e.target.dataset.a;if(e.target===d||a==='close')return d.remove();if(!a)return;d.remove();if(a==='open')openDetail(id);if(a==='edit')openEdit(r);if(a==='del')removeRecipe(r)};document.body.append(d)}
+let lp,lpFired=false;
+$('#list').addEventListener('pointerdown',e=>{const c=e.target.closest('.card');if(!c||e.target.closest('button'))return;lpFired=false;lp=setTimeout(()=>{lpFired=true;navigator.vibrate&&navigator.vibrate(30);openMenu(c.dataset.id)},600)});
+['pointerup','pointercancel','pointerleave','pointermove'].forEach(ev=>$('#list').addEventListener(ev,e=>{if(ev==='pointermove'&&Math.abs(e.movementY)+Math.abs(e.movementX)<4)return;clearTimeout(lp)}));
+$('#list').addEventListener('contextmenu',e=>{if(e.target.closest('.card'))e.preventDefault()});
 function openDetail(id){cur=recipes.find(r=>r.id===id);if(!cur){renderList();return show('vList')}servNow=cur.serv||1;checked={};renderDetail();show('vDetail')}
 function rowIng(n='',q=''){const d=document.createElement('div');d.className='row';d.innerHTML=`<input placeholder="재료 (예: 양파)" value="${esc(n)}" class="iN"><input placeholder="양 (예: 1개)" value="${esc(q)}" class="iQ" style="max-width:38%"><button class="x">✕</button>`;d.querySelector('.x').onclick=()=>d.remove();$('#fIngs').append(d)}
 function rowStep(s=''){const d=document.createElement('div');d.className='row';d.innerHTML=`<textarea rows="2" class="sT" placeholder="예: 물을 끓여요">${esc(s)}</textarea><button class="x">✕</button>`;d.querySelector('.x').onclick=()=>d.remove();$('#fSteps').append(d)}
@@ -144,10 +166,10 @@ $('#qkSave').onclick=async()=>{const name=$('#qkName').value.trim(),url=$('#qkUr
 $('#backBtn').onclick=()=>{renderList();show('vList')};
 $('#q').oninput=renderList;
 $('#chips').onclick=e=>{const c=e.target.dataset.c;if(c){cat=c;renderList()}};
-$('#list').onclick=async e=>{const f=e.target.dataset.fav;if(f){e.stopPropagation();const r=recipes.find(x=>x.id===f);r.fav=!r.fav;if(r.bot)r.override=true;await put(r);await load();renderList();return}const c=e.target.closest('.card');if(c)openDetail(c.dataset.id)};
+$('#list').onclick=async e=>{if(lpFired){lpFired=false;return}if(e.target.dataset.more){e.stopPropagation();return openMenu(e.target.dataset.more)}const f=e.target.dataset.fav;if(f){e.stopPropagation();const r=recipes.find(x=>x.id===f);r.fav=!r.fav;if(r.bot)r.override=true;await put(r);await load();renderList();return}const c=e.target.closest('.card');if(c)openDetail(c.dataset.id)};
 $('#expBtn').onclick=async()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');const mine=await all();const b=new Blob([JSON.stringify({app:'기억해레시피',version:2,recipes:mine},null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`기억해레시피_백업_${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}.json`;document.body.append(a);a.click();a.remove();toast(`내가 저장한 ${fmt(mine.length)}개를 파일로 저장했어요`)};
 $('#impBtn').onclick=()=>$('#impFile').click();
-$('#impFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const j=JSON.parse(await f.text());const L=Array.isArray(j)?j:j.recipes;if(!Array.isArray(L))throw 0;let n=0;for(const r of L){if(!r||!r.id)continue;if(!r.hiddenDel){if(!r.name)continue;r.ings=r.ings||[];r.steps=r.steps||[];r.sources=r.sources||[];r.photos=r.photos||[];r.cat=r.cat||'기타';r.serv=r.serv||1}await put(r);n++}await load();renderList();toast(`${fmt(n)}개 불러왔어요`)}catch{toast('백업 파일이 아니에요')}e.target.value=''};
+$('#impFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const j=JSON.parse(await f.text());const L=Array.isArray(j)?j:j.recipes;if(!Array.isArray(L))throw 0;let n=0;for(const r of L){if(!r||!r.id)continue;if(r.name){if(!r.name)continue;r.ings=r.ings||[];r.steps=r.steps||[];r.sources=r.sources||[];r.photos=r.photos||[];r.cat=r.cat||'기타';r.serv=r.serv||1}await put(r);n++}await load();renderList();toast(`${fmt(n)}개 불러왔어요`)}catch{toast('백업 파일이 아니에요')}e.target.value=''};
 (async()=>{await openDB();await fetchBots();await load();renderList();
  if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{})})();
 </script></body></html>
