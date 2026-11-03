@@ -246,13 +246,13 @@ async function autoFill(){const url=$('#qkUrl').value.trim(),f=$('#qkPhoto').fil
    else note='사진은 넣었어요. 사진 속 글씨를 읽으려면 설정에서 무료 AI 열쇠를 넣어 주세요.'}
   if(url){const id=ytId(url);
    if(id){d.sources.push({type:'youtube',url:ytUrl(id),label:'',timestamps:[]});const info=await ytInfo(url);d.name=cleanTitle(info.title);d.sources[0].label=info.author||'';
-    if(key){try{got=await gemini([{fileData:{fileUri:ytUrl(id),mimeType:'video/*'}},{text:PROMPT+'\n자료: 위 유튜브 영상. 참고로 영상 설명란:\n'+(info.desc||'(없음)').slice(0,6000)}]);note='AI가 영상을 보고 채웠어요.'}catch(e){note='AI가 영상을 못 읽어서 설명란에서 찾았어요. ('+e.message+')'}}
+    if(key){try{got=await gemini([{fileData:{fileUri:ytUrl(id),mimeType:'video/*'}},{text:PROMPT+'\n자료: 위 유튜브 영상. 참고로 영상 설명란:\n'+(info.desc||'(없음)').slice(0,6000)}]);note='AI가 영상을 보고 채웠어요.'}catch(e){if(info.desc||info.title){try{got=await gemini([{text:PROMPT+'\n자료: 유튜브 영상의 제목과 설명란입니다. 여기 적힌 내용만으로 정리하세요.\n제목: '+info.title+'\n설명란:\n'+(info.desc||'(없음)').slice(0,8000)}]);note='AI가 영상 제목·설명란을 읽고 채웠어요.'}catch(e2){note='AI가 영상을 못 읽어서 설명란에서 찾았어요. ('+e2.message+')'}}else note='AI가 영상을 못 읽었어요. ('+e.message+')'}}
     if(!got){const p=parseText(info.desc);d.ings=p.ings;d.steps=p.steps;d.sources[0].timestamps=p.ts;
      note=note||(p.ings.length||p.steps.length?'영상 설명란에서 재료 '+fmt(p.ings.length)+'개, 순서 '+fmt(p.steps.length)+'개를 찾았어요.':'영상 설명란에 레시피가 없어요. 이름과 링크만 채웠어요.'+(key?'':'\n(설정에서 무료 AI 열쇠를 넣으면 영상 내용까지 읽어요)'))}}
    else{d.sources.push({type:'blog',url,label:'',timestamps:[]});let md='';try{md=await jina(url)}catch(e){note='글을 가져오지 못했어요: '+e.message}
     const tt=md.match(/^Title:\s*(.+)$/m);d.name=cleanTitle(tt?tt[1]:'');d.sources[0].label=(tt?tt[1]:'').slice(0,60);
     const body=md.replace(/!?\[([^\]]*)\]\([^)]*\)/g,'$1');
-    if(key&&md){try{got=await gemini([{text:PROMPT+'\n자료: 블로그 글\n'+body.slice(0,30000)}]);note='AI가 글을 읽고 채웠어요.'}catch(e){note='AI 오류라 글에서 직접 찾았어요. ('+e.message+')'}}
+    if(key&&md){try{got=await gemini([{text:PROMPT+'\n자료: 블로그 글\n'+body.replace(/https?:\/\/\S+/g,'').replace(/\n{3,}/g,'\n\n').slice(0,15000)}]);note='AI가 글을 읽고 채웠어요.'}catch(e){note='AI 오류라 글에서 직접 찾았어요. ('+e.message+')'}}
     if(!got&&md){const p=parseText(body);d.ings=p.ings;d.steps=p.steps;note=note||(p.ings.length||p.steps.length?'글에서 재료 '+fmt(p.ings.length)+'개, 순서 '+fmt(p.steps.length)+'개를 찾았어요.':'글에서 레시피를 못 찾았어요. 이름과 링크만 채웠어요.')}}}
   if(got){d.name=got.name||d.name;d.cat=CATS.includes(got.category)?got.category:'기타';d.time=+got.minutes||0;d.serv=+got.servings||2;d.memo=got.memo||'';
    d.ings=(got.ingredients||[]).map(i=>[String(i.name||''),String(i.amount||'')]).filter(i=>i[0]);d.steps=(got.steps||[]).map(String).filter(Boolean);
