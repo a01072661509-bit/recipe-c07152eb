@@ -229,7 +229,7 @@ async function gemini(parts){const key=getKey();if(!key)throw new Error('AI 열�
    if(!busy)break; // 404 등: 다음 모델
    if(t<2){aiStatus('구글 AI가 지금 붐벼요. 잠시 뒤 다시 해 볼게요… ('+(t+1)+'/2)');await sleep(1500*(t+1))}}
   if(m!==models[models.length-1])aiStatus('다른 AI 모델로 바꿔서 해 볼게요…')}
- throw new Error(koErr(lastSt,lastM))}
+ throw new Error(koErr(lastSt,lastM)+' [코드 '+lastSt+(lastM?' · '+lastM.slice(0,150):'')+']')}
 const PROMPT=`당신은 요리 레시피 정리 도우미입니다. 주어진 자료(영상/글/사진)에서 레시피를 찾아 한국어로 정리하세요. 자료에 없는 내용은 지어내지 말고 비워 두세요.
 반드시 이 JSON 하나만 답하세요:
 {"name":"음식 이름(짧게)","category":"한식|양식|중식|일식|디저트|기타 중 하나","minutes":숫자 또는 0,"servings":숫자 또는 0,"ingredients":[{"name":"재료","amount":"양 (예: 200g, 1큰술, 1/2개)"}],"steps":["쉬운 말로 한 단계씩"],"timestamps":[{"t":"분:초","label":"그 장면 설명(영상일 때만, 중요한 3~6개)"}],"memo":"팁이 있으면 한두 줄"}`;
