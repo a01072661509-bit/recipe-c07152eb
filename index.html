@@ -219,12 +219,12 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function koErr(st,m){m=String(m||'');if(st===400&&/api key|API_KEY/i.test(m))return 'AI 열쇠가 맞지 않아요. 설정에서 다시 확인해 주세요.';if(st===403)return 'AI 열쇠에 권한이 없어요. 설정에서 열쇠를 다시 확인해 주세요.';
  if(st===429)return '오늘 무료 사용량을 다 썼거나 너무 자주 눌렀어요. 잠시 뒤 다시 해 주세요.';if(st===503||st===500||/overload|high demand|unavailable/i.test(m))return '구글 AI가 지금 붐벼요. 잠시 뒤 다시 해 주세요.';if(st===0)return '인터넷 연결을 확인해 주세요.';if(st==='parse')return 'AI 답을 읽지 못했어요. 다시 해 주세요.';return 'AI가 답하지 못했어요. 잠시 뒤 다시 해 주세요.'}
 async function gemini(parts){const key=getKey();if(!key)throw new Error('AI 열쇠가 없어요. 설정에서 넣어 주세요.');
- const models=[localStorage.getItem('gmModel')||'gemini-2.5-flash','gemini-2.5-flash','gemini-2.5-flash-lite','gemini-2.0-flash'].filter((v,i,a)=>v&&a.indexOf(v)===i);let lastSt=-1,lastM='';
+ const models=[localStorage.getItem('gmModel')||'gemini-2.5-flash','gemini-2.5-flash','gemini-2.5-flash-lite','gemini-2.0-flash'].filter((v,i,a)=>v&&a.indexOf(v)===i);let lastSt=-1,lastM='';const eps=key.startsWith('AQ.')?['v','g']:['g'];let ep=0;const U=m=>eps[ep]==='v'?`https://aiplatform.googleapis.com/v1/publishers/google/models/${m}:generateContent?key=${encodeURIComponent(key)}`:`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(key)}`;
  for(const m of models){for(let t=0;t<3;t++){let r,j={};
-   try{r=await fetch(key.startsWith('AQ.')?`https://aiplatform.googleapis.com/v1/publishers/google/models/${m}:generateContent?key=${encodeURIComponent(key)}`:`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{role:'user',parts}],generationConfig:{responseMimeType:'application/json',temperature:0.2}})});j=await r.json().catch(()=>({}))}catch(e){r={ok:false,status:0}}
+   try{r=await fetch(U(m),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{role:'user',parts}],generationConfig:{responseMimeType:'application/json',temperature:0.2}})});j=await r.json().catch(()=>({}))}catch(e){r={ok:false,status:0}}
    if(r.ok){usedModel=m;const tx=(j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('');try{return JSON.parse(tx.replace(/^```(json)?|```$/g,'').trim())}catch(e){lastSt='parse';break}}
    lastSt=r.status;lastM=j.error?.message||'';
-   if(r.status===400&&/api key|API_KEY/i.test(lastM)||r.status===403)throw new Error(koErr(r.status,lastM));
+   if(r.status===400&&/api key|API_KEY/i.test(lastM)||r.status===401||r.status===403){if(ep<eps.length-1){ep++;t=-1;continue}throw new Error(koErr(r.status,lastM)+(lastM?' ('+lastM.slice(0,120)+')':''))}
    const busy=[0,429,500,503].includes(r.status)||/overload|high demand|unavailable/i.test(lastM);
    if(!busy)break; // 404 등: 다음 모델
    if(t<2){aiStatus('구글 AI가 지금 붐벼요. 잠시 뒤 다시 해 볼게요… ('+(t+1)+'/2)');await sleep(1500*(t+1))}}
