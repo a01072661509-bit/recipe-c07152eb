@@ -221,7 +221,7 @@ function koErr(st,m){m=String(m||'');if(st===400&&/api key|API_KEY/i.test(m))ret
 async function gemini(parts){const key=getKey();if(!key)throw new Error('AI 열쇠가 없어요. 설정에서 넣어 주세요.');
  const models=[localStorage.getItem('gmModel')||'gemini-2.5-flash','gemini-2.5-flash','gemini-2.5-flash-lite','gemini-2.0-flash'].filter((v,i,a)=>v&&a.indexOf(v)===i);let lastSt=-1,lastM='';
  for(const m of models){for(let t=0;t<3;t++){let r,j={};
-   try{r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify({contents:[{role:'user',parts}],generationConfig:{responseMimeType:'application/json',temperature:0.2}})});j=await r.json().catch(()=>({}))}catch(e){r={ok:false,status:0}}
+   try{r=await fetch(key.startsWith('AQ.')?`https://aiplatform.googleapis.com/v1/publishers/google/models/${m}:generateContent?key=${encodeURIComponent(key)}`:`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{role:'user',parts}],generationConfig:{responseMimeType:'application/json',temperature:0.2}})});j=await r.json().catch(()=>({}))}catch(e){r={ok:false,status:0}}
    if(r.ok){usedModel=m;const tx=(j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('');try{return JSON.parse(tx.replace(/^```(json)?|```$/g,'').trim())}catch(e){lastSt='parse';break}}
    lastSt=r.status;lastM=j.error?.message||'';
    if(r.status===400&&/api key|API_KEY/i.test(lastM)||r.status===403)throw new Error(koErr(r.status,lastM));
